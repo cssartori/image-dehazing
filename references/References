@@ -1,0 +1,20 @@
+References of my Image Dehazing by Dark Channel Prior implementation:
+
+[Tan 08] 
+	R. Tan. Visibility in bad weather from a single image. CVPR, 2008.
+
+[He et al. 09]
+	K. He, J. Sun, X. Tang. Single Image Haze Removal Using Dark Channel Prior. CVRP, 2009.
+
+[Fattal 08] 
+	R. Fattal. Single image dehazing. In SIGGRAPH, pages 1–9, 2008.
+
+[Fattal 14]
+	R. Fattal. Dehazing Using Color-Lines. ACM, 2014.
+        
+[He et al. 10]    
+	K. He, J. Sun, X. Tang. Guided Image Filtering. ECCV, 2010.
+
+[Lee et al. 16]
+	S. Lee, S. Yun, J. Nam, C. Won, S. Jung. A review on dark channel prior based image dehazing algorithms. Springer, 2016.
+
