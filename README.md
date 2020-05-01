@@ -12,6 +12,10 @@ In order to run the program one needs:
 
 * [*NumPy*](http://www.numpy.org/) installed.
 
+* [*scikit-image*](https://scikit-image.org/docs/dev/api/skimage.html) installed.
+
+* [*numba*](https://numba.pydata.org/numba-doc/latest/user/installing.html) installed.
+
 Having those requirements, one should be able to run the program with the following command line (considering one is in the *src* folder):
 
 ```

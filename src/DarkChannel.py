@@ -6,7 +6,9 @@ Carlo S. Sartori
 """
 
 import numpy
+from numba import jit
 
+@jit
 def estimate(imageArray, ps=15):
     """
     Dark Channel estimation. According to equation (5) in the reference paper

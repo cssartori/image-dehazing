@@ -7,6 +7,13 @@ Carlo S. Sartori
 
 import numpy
 
+from numba import jit, njit
+from numba.core.errors import NumbaDeprecationWarning, NumbaWarning
+import warnings
+warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
+warnings.filterwarnings("ignore", category=NumbaWarning)
+
+@jit
 def guided_filter(imageArray, p, r=40, eps=1e-3):
     """
     Filter refinement under the guidance of an image. O(N) implementation.
@@ -70,9 +77,11 @@ def guided_filter(imageArray, p, r=40, eps=1e-3):
 
     for i in range(0, H):
         for j in range(0, W):
-            sigma = numpy.array([ [var_i[0, 0, i, j], var_i[0, 1, i, j], var_i[0, 2, i, j]],
-                                  [var_i[0, 1, i, j], var_i[1, 1, i, j], var_i[1, 2, i, j]],
-                                  [var_i[0, 2, i, j], var_i[1, 2, i, j], var_i[2, 2, i, j]]])
+            sigma = numpy.array([
+                                    [var_i[0, 0, i, j], var_i[0, 1, i, j], var_i[0, 2, i, j]],
+                                    [var_i[0, 1, i, j], var_i[1, 1, i, j], var_i[1, 2, i, j]],
+                                    [var_i[0, 2, i, j], var_i[1, 2, i, j], var_i[2, 2, i, j]]
+                                ])
 
             #covariance of (imageArray, p) in pixel (i,j) for the 3 channels
             cov_ip_ij = numpy.array([ cov_ip[0, i, j], cov_ip[1, i, j], cov_ip[2, i, j]])
@@ -83,13 +92,13 @@ def guided_filter(imageArray, p, r=40, eps=1e-3):
 
     #the filter p'  eq.(16)
     pp = ( __boxfilter__(a[:,:, 0], r)*imageArray[:,:, 0]
-          +__boxfilter__(a[:,:, 1], r)*imageArray[:,:, 1]
-          +__boxfilter__(a[:,:, 2], r)*imageArray[:,:, 2]
-          +__boxfilter__(b, r) )/S
+            +__boxfilter__(a[:,:, 1], r)*imageArray[:,:, 1]
+            +__boxfilter__(a[:,:, 2], r)*imageArray[:,:, 2]
+            +__boxfilter__(b, r) )/S
 
     return pp
 
-
+@jit
 def __boxfilter__(m, r):
     """
     Fast box filtering implementation, O(1) time.

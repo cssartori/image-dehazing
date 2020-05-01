@@ -6,7 +6,9 @@ Carlo S. Sartori
 """
 
 import numpy
+from numba import njit
 
+@njit
 def recover(imageArray, atm, t, tmin=0.1):
     """
     Radiance recovery. According to section (4.3) and equation (16) in the reference paper

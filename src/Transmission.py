@@ -6,9 +6,10 @@ Carlo S. Sartori
 """
 
 import numpy
-import DarkChannel
+from . import DarkChannel
+from numba import jit
 
-
+@jit
 def estimate(imageArray, A, w=0.95):
     """
     Transmission estimation. According to section (4.1) equation (11) in the reference paper

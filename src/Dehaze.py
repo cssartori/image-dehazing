@@ -5,11 +5,11 @@ Final Project of "INF01050 - Computational Photography" class, 2016, at UFRGS.
 Carlo S. Sartori
 """
 
-import DarkChannel
-import AtmLight
-import Transmission
-import Refine
-import Radiance
+from . import DarkChannel
+from . import AtmLight
+from . import Transmission
+from . import Refine
+from . import Radiance
 import numpy
 
 """

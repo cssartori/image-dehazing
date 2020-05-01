@@ -6,7 +6,9 @@ Carlo S. Sartori
 """
 
 import numpy
+from numba import jit
 
+@jit
 def estimate(imageArray, jdark, px=1e-3):
     """
     Automatic atmospheric light estimation. According to section (4.4) in the reference paper
