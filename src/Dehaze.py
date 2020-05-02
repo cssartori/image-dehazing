@@ -1,8 +1,9 @@
 """
 Fast Single Image Haze Removal Using Dark Channel Prior
-Final Project of "INF01050 - Computational Photography" class, 2016, at UFRGS.
+Original by https://github.com/cssartori
 
-Carlo S. Sartori
+@author Philip Kahn
+@date 20200501
 """
 
 from . import DarkChannel

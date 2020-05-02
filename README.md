@@ -6,9 +6,7 @@ An implementation of the algorithm described in *Single Image Haze Removal Using
 
 In order to run the program one needs:
 
-* [*Python 3.6+*](https://www.python.org/) installed;
-
-* [*SciPy*](https://www.scipy.org/index.html) installed;
+* [*Python 3.6+*](https://www.python.org/) installed
 
 * [*NumPy*](http://www.numpy.org/) installed.
 
@@ -48,4 +46,6 @@ However, the two main references for this project were:
 
 ## About ##
 
-This project was developed as a Final Project for the "INF01050 - Computational Photography" class, 2016, at UFRGS.
+This project was developed as a Final Project for the "INF01050 - Computational Photography" class, 2016, at UFRGS by [Carlo S. Sartori](https://github.com/cssartori/image-dehazing).
+
+Migrated to Python 3 and enhanced by Philip Kahn
