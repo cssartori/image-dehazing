@@ -97,7 +97,7 @@ def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg",
         _ = dehazeImage(filename, outFile, a, t, rt, tmin, ps, w, px, r, eps, verbose)
         print(f"Done {i} of {len(fileSet)}")
 
-def dehazeFolderOfDirectories(parentDirectory= r"F:\Outputs\Mezzanine", outputDir= "dehazedFrames", recursiveSearch= False):
+def dehazeFolderOfDirectories(parentDirectory, outputDir= "dehazedFrames", recursiveSearch= False):
     import glob
     import os
     if not parentDirectory.endswith("*"):
