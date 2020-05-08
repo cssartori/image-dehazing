@@ -97,9 +97,12 @@ def guided_filter(imageArray, p, r=40, eps=1e-3):
         pp = cp.asnumpy(pp)
     return pp
 
-@njit(parallel= True)
+@njit # Row dependencies means can't be parallel
 def yCumSum(a):
-
+    """
+    Numba based computation of y-direction
+    cumulative sum. Can't be parallel!
+    """
     out = np.empty_like(a)
     out[0, :] = a[0, :]
     for i in prange(1, a.shape[0]):
@@ -108,6 +111,10 @@ def yCumSum(a):
 
 @njit(parallel= True)
 def xCumSum(a):
+    """
+    Numba-based parallel computation
+    of X-direction cumulative sum
+    """
     out = np.empty_like(a)
     for i in prange(a.shape[0]):
         out[i, :] = np.cumsum(a[i, :])
@@ -122,7 +129,7 @@ def _boxFilter(m, r, gpu= hasGPU):
         return cp.asarray(out)
     return out
 
-@jit(parallel= True, fastmath= True)
+@jit(parallel= True)
 def __boxfilter__(m, r):
     """
     Fast box filtering implementation, O(1) time.
@@ -142,20 +149,20 @@ def __boxfilter__(m, r):
     mp = np.empty(m.shape)
 
     #cumulative sum over y axis
-    ysum = np.cumsum(m, axis=0)
+    ySum = yCumSum(m) #np.cumsum(m, axis=0)
     #copy the accumulated values of the windows in y
-    mp[0:r+1,: ] = ysum[r:(2*r)+1,: ]
+    mp[0:r+1,: ] = ySum[r:(2*r)+1,: ]
     #differences in y axis
-    mp[r+1:H-r,: ] = ysum[(2*r)+1:,: ] - ysum[ :H-(2*r)-1,: ]
-    mp[(-r):,: ] = np.tile(ysum[-1,: ], (r, 1)) - ysum[H-(2*r)-1:H-r-1,: ]
+    mp[r+1:H-r,: ] = ySum[(2*r)+1:,: ] - ySum[ :H-(2*r)-1,: ]
+    mp[(-r):,: ] = np.tile(ySum[-1,: ], (r, 1)) - ySum[H-(2*r)-1:H-r-1,: ]
 
     #cumulative sum over x axis
-    xsum = np.cumsum(mp, axis=1)
+    xSum = xCumSum(mp) #np.cumsum(mp, axis=1)
     #copy the accumulated values of the windows in x
-    mp[:, 0:r+1] = xsum[:, r:(2*r)+1]
+    mp[:, 0:r+1] = xSum[:, r:(2*r)+1]
     #difference over x axis
-    mp[:, r+1:W-r] = xsum[:, (2*r)+1: ] - xsum[:, :W-(2*r)-1]
-    mp[:, -r: ] = np.tile(xsum[:, -1][:, None], (1, r)) - xsum[:, W-(2*r)-1:W-r-1]
+    mp[:, r+1:W-r] = xSum[:, (2*r)+1: ] - xSum[:, :W-(2*r)-1]
+    mp[:, -r: ] = np.tile(xSum[:, -1][:, None], (1, r)) - xSum[:, W-(2*r)-1:W-r-1]
     return mp
 
 @njit(parallel=True)
