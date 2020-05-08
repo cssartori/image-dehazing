@@ -6,8 +6,8 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 
-import numpy
-from numba import jit
+import numpy as np
+from numba import jit, njit, prange
 
 @jit
 def estimate(imageArray, ps=15):
@@ -24,18 +24,20 @@ def estimate(imageArray, ps=15):
     -----------
     The dark channel estimated in imageArray, jdark (a matrix H*W).
     """
-
+    offset = ps // 2
     #Padding of the image to have windows of ps x ps size centered at each image pixel
-    impad = numpy.pad(imageArray, [(ps//2, ps//2), (ps//2, ps//2), (0, 0)], 'edge')
+    impad = np.pad(imageArray, [(offset, offset), (offset, offset), (0, 0)], 'edge')
 
+    return getJDark(offset, np.empty(imageArray.shape[:2]), impad)
+
+@njit(parallel=True)
+def getJDark(offset:int, jdark:tuple, paddedImage:np.ndarray) -> np.ndarray:
     #Jdark is the Dark channel to be found
-    jdark = numpy.zeros((imageArray.shape[0], imageArray.shape[1]))
-
-    for i in range(ps//2, (imageArray.shape[0]+ps//2)):
-        for j in range(ps//2, (imageArray.shape[1]+ps//2)):
+    for i in prange(offset, (jdark.shape[0]+offset)):
+        for j in prange(offset, (jdark.shape[1]+offset)):
             #creates the patch P(x) of size ps x ps centered at x
-            patch = impad[i-ps//2:i+1+ps//2, j-ps//2:j+1+ps//2]
+            patch = paddedImage[i-offset:i+1+offset, j-offset:j+1+offset]
             #selects the minimum value in this patch and set as the dark channel of pixel x
-            jdark[i-ps//2, j-ps//2] = patch.min()
+            jdark[i-offset, j-offset] = patch.min()
 
     return jdark

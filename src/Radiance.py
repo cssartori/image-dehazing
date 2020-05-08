@@ -6,10 +6,10 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 
-import numpy
-from numba import njit
+import numpy as np
+from numba import njit, prange
 
-@njit
+@njit(parallel= True, fastmath= True)
 def recover(imageArray, atm, t, tmin=0.1):
     """
     Radiance recovery. According to section (4.3) and equation (16) in the reference paper
@@ -28,10 +28,10 @@ def recover(imageArray, atm, t, tmin=0.1):
     """
 
     #the output dehazed image
-    j = numpy.zeros(imageArray.shape)
+    j = np.empty(imageArray.shape)
 
     #equation (16)
-    for c in range(0, imageArray.shape[2]):
-        j[:,:, c] = ((imageArray[:,:, c]-atm[c])/numpy.maximum(t[:,:], tmin))+atm[c]
+    for c in prange(0, imageArray.shape[2]):
+        j[:,:, c] = ((imageArray[:,:, c]-atm[c])/np.maximum(t[:,:], tmin))+atm[c]
 
-    return j/numpy.amax(j)
+    return j/np.amax(j)

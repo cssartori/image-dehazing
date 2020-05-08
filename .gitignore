@@ -1,4 +1,8 @@
-**/__pycache__
-**/__pycache__/*
-.vscode
+test_images/*
+src/test_images/*
+test_results/*
+src/test_results/*
+__pycache__
+dehazing.zip
 conv2to3.py
+.vscode

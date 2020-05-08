@@ -6,7 +6,7 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 
-import numpy
+import numpy as np
 from numba import jit
 
 @jit
@@ -27,20 +27,20 @@ def estimate(imageArray, jdark, px=1e-3):
     """
 
     #reshape both matrix to get it in 1-D array shape
-    imgavec = numpy.resize(imageArray, (imageArray.shape[0]*imageArray.shape[1], imageArray.shape[2]))
-    jdarkvec = numpy.reshape(jdark, jdark.size)
+    imgavec = np.resize(imageArray, (imageArray.shape[0]*imageArray.shape[1], imageArray.shape[2]))
+    jdarkvec = np.reshape(jdark, jdark.size)
 
     #the number of pixels to be considered
-    numpx = numpy.int(jdark.size * px)
+    numpx = np.int(jdark.size * px)
 
     #index sort the jdark channel in descending order
-    isjd = numpy.argsort(-jdarkvec)
+    isjd = np.argsort(-jdarkvec)
 
-    asum = numpy.array([0.0, 0.0, 0.0])
+    asum = np.array([0.0, 0.0, 0.0])
     for i in range(0, numpx):
         asum[:] += imgavec[isjd[i],:]
 
-    A = numpy.array([0.0, 0.0, 0.0])
+    A = np.array([0.0, 0.0, 0.0])
     A[:] = asum[:]/numpx
 
     #returns the calculated airlight A

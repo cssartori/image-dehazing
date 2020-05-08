@@ -6,7 +6,7 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 
-import numpy
+import numpy as np
 from skimage.io import imread, imsave, imshow
 
 #A class to hold an Image
@@ -50,9 +50,9 @@ class AImage(object):
     @staticmethod
     def fromarray(array):
         #check if the array is float type
-        if array.dtype != numpy.float64:
+        if array.dtype != np.float64:
             #cast to float with values from 0 to 1
-            array = numpy.divide(numpy.asfarray(array), 255.0)
+            array = np.divide(np.asfarray(array), 255.0)
 
         simg = AImage(array)
         return simg
@@ -62,9 +62,9 @@ class AImage(object):
         try:
             array = imread(filename)
             #check if the array is float type
-            if array.dtype != numpy.float64:
+            if array.dtype != np.float64:
                 #cast to float with values from 0 to 1
-                array = numpy.divide(numpy.asfarray(array), 255.0)
+                array = np.divide(np.asfarray(array), 255.0)
 
             img = AImage(array, filename)
         except IOError:
@@ -77,10 +77,10 @@ class AImage(object):
         if isinstance(im, AImage):
             imsave(filename, im.array())
             simg = AImage(im.array(), filename)
-        elif isinstance(im, numpy.ndarray):
+        elif isinstance(im, np.ndarray):
             imsave(filename, im)
             simg = AImage(im, filename)
         else:
-            raise TypeError('im parameter should be either a numpy.ndarray or AImage.AImage')
+            raise TypeError('im parameter should be either a np.ndarray or AImage.AImage')
 
         return simg

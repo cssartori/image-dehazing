@@ -5,13 +5,19 @@ Original by https://github.com/cssartori
 @author Philip Kahn
 @date 20200501
 """
-
-from . import DarkChannel
-from . import AtmLight
-from . import Transmission
-from . import Refine
-from . import Radiance
-import numpy
+try:
+    import DarkChannel
+    import AtmLight
+    import Transmission
+    import Refine
+    import Radiance
+except ModuleNotFoundError:
+    from . import DarkChannel
+    from . import AtmLight
+    from . import Transmission
+    from . import Refine
+    from . import Radiance
+import numpy as np
 
 """
 Main References
@@ -22,8 +28,12 @@ Main References
     http://kaiminghe.com/eccv10/index.html
 
 """
+try:
+    from timeit_local import timeit
+except ModuleNotFoundError:
+    from .timeit_local import timeit
 
-def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3, r=40, eps=1e-3, m=False):
+def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3, r=40, eps=1e-3, m=False, returnLight= False):
     """
     Application of the dehazing algorithm, as described in section (4) of the reference paper
     http://kaiminghe.com/cvpr09/index.html
@@ -46,32 +56,37 @@ def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3
     -----------
     The dehazed image version of imageArray, dehazed (a H*W RGB matrix).
     """
-
-    jdark = DarkChannel.estimate(imageArray, ps)
+    def doNothing():
+        return
+    if m:
+        timeDisp = print
+    else:
+        timeDisp = doNothing
+    with timeit("\tDark channel estimated in", logFn= timeDisp):
+        jdark = DarkChannel.estimate(imageArray, ps)
     #return jdark
     #if no atmospheric given
     if a == None:
-        a = AtmLight.estimate(imageArray, jdark)
-        if m:
-            print('Atmospheric Light estimated.')
+        with timeit("\tAtmospheric light estimated in", logFn= timeDisp):
+            a = AtmLight.estimate(imageArray, jdark)
 
     #if no raw transmission and complete transmission given
     if rt == None and t == None:
-        rt = Transmission.estimate(imageArray, a, w)
+        with timeit("\tTransmission estimated in", logFn= timeDisp):
+            rt = Transmission.estimate(imageArray, a, w)
         #threshold of raw transmission
-        rt = numpy.maximum(rt, tmin)
-        if m:
-            print('Transmission estimated.')
+        rt = np.maximum(rt, tmin)
+
 
     #if no complete transmission given, refine the raw using guided filter
     if t == None:
-        t = Refine.guided_filter(imageArray, rt)
-        if m:
-            print('Transmission refined.')
+        with timeit("\tRefinement filter run in", logFn= timeDisp):
+            t = Refine.guided_filter(imageArray, rt)
 
     #recover the scene radiance
-    dehazed = Radiance.recover(imageArray, a, t, tmin)
-    if m:
-        print('Radiance recovered.')
+    with timeit("\tRadiance recovery in", logFn= timeDisp):
+        dehazed = Radiance.recover(imageArray, a, t, tmin)
 
+    if returnLight:
+        return dehazed, np.sum(a)
     return dehazed

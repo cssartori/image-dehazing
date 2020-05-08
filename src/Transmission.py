@@ -6,11 +6,14 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 
-import numpy
-from . import DarkChannel
-from numba import jit
+import numpy as np
+try:
+    import DarkChannel
+except ModuleNotFoundError:
+    from . import DarkChannel
+from numba import jit, prange
 
-@jit
+@jit(parallel= True, fastmath= True)
 def estimate(imageArray, A, w=0.95):
     """
     Transmission estimation. According to section (4.1) equation (11) in the reference paper
@@ -27,10 +30,10 @@ def estimate(imageArray, A, w=0.95):
     The transmission estimated in imageArray, t (a H*W matrix).
     """
     #the normalized haze image
-    nimg = numpy.zeros(imageArray.shape)
+    nimg = np.empty(imageArray.shape)
 
     #calculate the normalized haze image
-    for c in range(0, imageArray.shape[2]):
+    for c in prange(0, imageArray.shape[2]):
         nimg[:,:, c] = imageArray[:,:, c]/A[c]
 
     #estimate the dark channel of the normalized haze image
