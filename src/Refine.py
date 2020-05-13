@@ -129,7 +129,8 @@ def _boxFilter(m, r, gpu= hasGPU):
         return cp.asarray(out)
     return out
 
-@jit(parallel= True)
+
+@njit
 def __boxfilter__(m, r):
     """
     Fast box filtering implementation, O(1) time.
@@ -154,7 +155,7 @@ def __boxfilter__(m, r):
     mp[0:r+1,: ] = ySum[r:(2*r)+1,: ]
     #differences in y axis
     mp[r+1:H-r,: ] = ySum[(2*r)+1:,: ] - ySum[ :H-(2*r)-1,: ]
-    mp[(-r):,: ] = np.tile(ySum[-1,: ], (r, 1)) - ySum[H-(2*r)-1:H-r-1,: ]
+    mp[(-r):,: ] = ySum[-1, :].repeat(r).reshape((-1, r)).T - ySum[H-(2*r)-1:H-r-1,: ]
 
     #cumulative sum over x axis
     xSum = xCumSum(mp) #np.cumsum(mp, axis=1)
@@ -162,7 +163,11 @@ def __boxfilter__(m, r):
     mp[:, 0:r+1] = xSum[:, r:(2*r)+1]
     #difference over x axis
     mp[:, r+1:W-r] = xSum[:, (2*r)+1: ] - xSum[:, :W-(2*r)-1]
-    mp[:, -r: ] = np.tile(xSum[:, -1][:, None], (1, r)) - xSum[:, W-(2*r)-1:W-r-1]
+    # A few Numba njit fixes:
+    # 1. Can't use np.newaxis / NOne on a slice (xSum[:, -1][:, np.newaxis]), must use reshape instead
+    # 2. Can't do on bare slice, have to copy first (https://github.com/numba/numba/issues/4917)
+    # np.save("numba_0.49.1_crash_py3.6.10_numpy1.18.4+mkl_win10x64.npy", xSum)
+    mp[:, -r: ] = xSum[:, -1].copy().reshape(-1, 1).repeat(r).reshape((-1, r)) - xSum[:, W-(2*r)-1:W-r-1]
     return mp
 
 @njit(parallel=True)

@@ -56,7 +56,7 @@ def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3
     -----------
     The dehazed image version of imageArray, dehazed (a H*W RGB matrix).
     """
-    def doNothing():
+    def doNothing(*args, **kwargs):
         return
     if m:
         timeDisp = print

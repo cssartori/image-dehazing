@@ -12,26 +12,53 @@ import numpy as np
 from typing import Union
 from PIL import Image
 
-def dehazeImage(img:str, outputImgFile:str,  a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False):
+def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False):
+    """
+    """
     import os
+    import datetime as dt
+    from skimage import exposure, io
+    startTime = dt.datetime.now()
     try:
         from AImage import AImage
         from Dehaze import dehaze
     except ModuleNotFoundError:
         from .AImage import AImage
         from .Dehaze import dehaze
-    #tries to open the input image
-    try:
-        inFilename = os.path.basename(img)
-        img = AImage.open(img)
+    # Image loading
+    saveImage = isinstance(outputImgFile, str)
+    if not saveImage:
+        outputImgFile = None
+    if saveImage and not os.path.exists(os.path.dirname(outputImgFile)):
+        raise ValueError(f"Output directory `{os.path.dirname(outputImgFile)}` does not exist")
+    if isinstance(img, str):
+        # tries to open the input image
+        try:
+            inFilename = os.path.basename(img)
+            img = AImage.open(img)
+            if verbose:
+                print(f"Image `{inFilename}` opened.")
+        except (IOError, FileNotFoundError):
+            raise FileNotFoundError(f"File `{os.path.abspath(img)}`` cannot be found.")
+        except PermissionError:
+            raise PermissionError(f"Permission denied reading `{os.path.abspath(img)}`")
+    elif isinstance(img, np.ndarray):
+        inFilename = None
+        img = AImage.load(img)
         if verbose:
-            print(f"Image '{img}' opened.")
-    except (IOError, FileNotFoundError):
-        raise FileNotFoundError(f"File '{os.path.abspath(img)}' cannot be found.")
-    #Dehaze the input image
-    from skimage import exposure
-    oImg, totalLight = dehaze(img.array(), a, t, rt, tmin, ps, w, px, r, eps, verbose, returnLight= True)
-    oImage = np.clip(exposure.rescale_intensity(np.clip(oImg, 0, 255), in_range= (np.min(img.array()), np.max(img.array()))), 0, 255)
+            print("Loaded image from ndarray")
+    else:
+        raise TypeError("Invalid image type")
+    # Dehaze the input image
+    oImgO, totalLight = dehaze(img.array(), a, t, rt, tmin, ps, w, px, r, eps, verbose, returnLight= True)
+    # Fix the pixel ranges that are returned from the dehazer, if need be
+    if np.min(oImgO) <= -0.1:
+        # Some images have insane range, eg, -3
+        oImgR = (oImgO - np.clip(np.min(oImgO), -255, 0))
+        oImg = oImgR / np.max(oImgR)
+    else:
+        oImg = oImgO.copy()
+    oImg = np.clip(exposure.rescale_intensity(oImg, in_range= (np.min(img.array()), np.max(img.array()))), 0, 255)
     # Compare to original, if sufficiently dehazed do exposure correction
     from imagehash import phash, colorhash
     originalHash = phash(Image.fromarray((255 * img.array()).astype(np.uint8)))
@@ -40,18 +67,22 @@ def dehazeImage(img:str, outputImgFile:str,  a= None, t= None, rt= None, tmin:fl
     newHashC = colorhash(Image.fromarray((255 * oImg).astype(np.uint8)))
     hashDiff = abs(newHash - originalHash)
     hashDiff2 = abs(newHashC - originalHashC)
-    # aerial: 10
-    # RED: 4
-    print(inFilename)
-    print(hashDiff)
-    print(hashDiff2)
-    if inFilename.lower().startswith("threequarter"):
-        # tweak exposures for try
-        gamma = 1.1
-        gain = 5.4
-        # Next line flagged for debug breakpoint
-        pass
+    # Check the differences between input and output
+    if verbose:
+        # aerial: 10
+        # RED: 4
+        print(inFilename)
+        print("Perceptual hash:", hashDiff)
+        print("Color hash:", hashDiff2)
+    if hashDiff >= 20 and hashDiff2 >= 5:
+        import warnings
+        if outputImgFile is None:
+            warnings.warn("There may be an issue with the dehazed image")
+        else:
+            warnings.warn(f"There may be an issue with the dehazed image `{outputImgFile}`")
+    # Generate a final exposure-corrected image
     if hashDiff > 1 and (hashDiff2 > 2 or hashDiff >= 4 or totalLight >= 2.75):
+        needed = True
         try:
             gamma = np.clip(1.1, 1, 1.2) # Brightness
             gain = np.clip(5.4, 5, 5.7) # Contrast
@@ -65,15 +96,82 @@ def dehazeImage(img:str, outputImgFile:str,  a= None, t= None, rt= None, tmin:fl
             print(f"Did not need to dehaze; nonsensical result for hash difference {hashDiff} & {hashDiff2}: {e}")
             oImg3 = (255 * img.array()).astype(np.uint8)
     else:
+        needed = False
         print(f"Dehazing made no or trivial perceptual changes to the data in `{inFilename}` (hash difference {hashDiff} & {hashDiff2})")
         oImg3 = (255 * img.array()).astype(np.uint8)
     #save the image to file
-    _ = AImage.save(oImg3, outputImgFile)
-    if verbose:
-        print(f"Image '{outputImgFile}' saved.")
-    return img
+    if saveImage:
+        _ = AImage.save(oImg3, outputImgFile)
+        if verbose:
+            print(f"Image '{outputImgFile}' saved.")
+    otherStats = list()
+    if checkSections:
+        # Review horizontal sections of a photo
+        # The goal of this is for the case where you only
+        # care about haze in a subsection of an image and,
+        # therefore, don't want to manipulate the image
+        # unless haze exists in this "bad" location
+        h, w = img.array().shape[:2]
+        refImg = (255 * img.array()).astype(np.uint8)
+        sections = {
+            "top": ((0, h//4), (0, w)),
+            "middle": ((h//4, h//2), (0, w)),
+            "bottom": ((h//2, h), (0, w)),
+        }
+        for corner, slices in sections.items():
+            if verbose:
+                print(f"\tDehazing corner {corner}...")
+            if outputImgFile is not None:
+                oParts = outputImgFile.split(".")
+                ext = oParts.pop()
+                oParts.append(f"section_{corner}")
+                oParts.append(ext)
+                quadOut = ".".join(oParts)
+            else:
+                quadOut = None
+            h0, h1 = slices[0]
+            w0, w1 = slices[1]
+            sectionOHash = phash(Image.fromarray(refImg[h0:h1, w0:w1]))
+            sectionNewHash = phash(Image.fromarray(oImg3[h0:h1, w0:w1]))
+            sectionCOHash = colorhash(Image.fromarray(refImg[h0:h1, w0:w1]))
+            sectionCNewHash = colorhash(Image.fromarray(oImg3[h0:h1, w0:w1]))
+            sHashDiff = abs(sectionNewHash - sectionOHash)
+            sHashDiff2 = abs(sectionCNewHash - sectionCOHash)
+            needed = sHashDiff > 1 and (sHashDiff2 > 2 or sHashDiff >= 4) # or totalLight >= 2.75)
+            qs = {
+                # TODO ADD STATS
+                "needed": needed,
+                "needMeasure": {
+                    "perceptualBasic": sHashDiff > 1,
+                    "perceptualStrong": sHashDiff >= 4,
+                    "colorShift": sHashDiff2 > 2,
+                    "atmosphericLight": False
+                },
+                "runTimeSeconds": np.around((dt.datetime.now() - startTime).total_seconds(), 3),
+                "style": f"section_{corner}"
+            }
+            otherStats += [qs]
+            if quadOut is not None:
+                io.imsave(quadOut, oImg3[h0:h1, w0:w1])
+                print(f"\twrote subimage `{quadOut}`")
+    if report:
+        stats = {
+            "needed": needed,
+            "needMeasure": {
+                "perceptualBasic": hashDiff > 1,
+                "perceptualStrong": hashDiff >= 4,
+                "colorShift": hashDiff2 > 2,
+                "atmosphericLight": totalLight >= 2.75
+            },
+            "runTimeSeconds": np.around((dt.datetime.now() - startTime).total_seconds(), 3),
+            "style": "fullPhoto"
+        }
+        return oImg3, [stats] + otherStats
+    return oImg3
 
-def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg", "jpeg"], a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, recursiveSearch= True):
+def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg", "jpeg"], a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, recursiveSearch:bool= True, report:bool= False, checkSections:bool= False):
+    """
+    """
     import glob
     import os
     if outputDirectory is None:
@@ -89,26 +187,157 @@ def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg",
             files = glob.glob(os.path.join(directory, f"*.{extension}"))
         fileSet += list(files)
     fileSet = frozenset(fileSet)
+    reportFile = os.path.join(outputDirectory, "report.csv")
+    if report and os.path.exists(reportFile):
+        os.unlink(reportFile)
     print(f"Going to convert {len(fileSet)} images")
     for i, filename in enumerate(fileSet, 1):
         filenameParts = os.path.basename(filename).split(".")
         fileBase = filenameParts[:-1]
         outFile = os.path.join(outputDirectory, ".".join(fileBase + ["dehazed", filenameParts[-1]]))
-        _ = dehazeImage(filename, outFile, a, t, rt, tmin, ps, w, px, r, eps, verbose)
+        results = dehazeImage(filename, outFile, a, t, rt, tmin, ps, w, px, r, eps, verbose= verbose, report= report, checkSections= checkSections)
+        if report:
+            # Handle output reporting
+            loggedReport= False
+            if verbose:
+                print("About to report")
+            import csv
+            statsSet= results[1]
+            # statsSet will always be length 1 for
+            # checkSections= False, but we always return
+            # a list for consistent handling
+            for stats in statsSet:
+                # Create a score for "needed"
+                howMuchNeeded = 0
+                if stats["needMeasure"]["perceptualBasic"]:
+                    for key, boolVal in stats["needMeasure"].items():
+                        howMuchNeeded += int(boolVal)
+                writeHeader = not os.path.exists(reportFile)
+                if verbose and not loggedReport:
+                    print(f"Going to write to `{reportFile}` (with headers? {writeHeader})")
+                    loggedReport = True
+                row = {
+                    "Search Directory": os.path.abspath(os.path.normpath(directory)),
+                    "File Directory": os.path.normpath(os.path.dirname(filename)),
+                    "Filename": os.path.basename(filename),
+                    "Processing Time (s)": stats["runTimeSeconds"],
+                    "Style": stats["style"],
+                    "Needed?": stats["needed"],
+                    "Needed Score": howMuchNeeded,
+                    "Needed Details": stats["needMeasure"],
+                }
+                ############
+                # We're writing this to report as we go.
+                # Since the most common viewer is Excel, and
+                # Microsoft grabs files and never lets go, we
+                # don't want to crap out as soon as someone views
+                # a file while we're trying to write. So, we'll
+                # attempt an append for 10 minutes before giving
+                # up the ghost, and warn the user lots in the
+                # terminal.
+                ############
+                hasWritten = False
+                tries = 0
+                tryLimit = 60
+                waitDelaySeconds = 10
+                while not hasWritten:
+                    try:
+                        with open(reportFile, "a", newline= "") as fh:
+                            writer = csv.writer(fh, quoting=csv.QUOTE_ALL, lineterminator= "\n")
+                            if writeHeader:
+                                writer.writerow([col for col, value in row.items()])
+                            writer.writerow([str(value) for col, value in row.items()])
+                        hasWritten = True
+                    except (IOError, PermissionError):
+                        if tries > tryLimit:
+                            raise
+                        import time
+                        print(f"Could not open `{reportFile}` for writing; if you use Excel, please close the file there. The process will abort in {(tryLimit - tries + 1) * waitDelaySeconds} seconds...")
+                        time.sleep(waitDelaySeconds)
+                        tries += 1
         print(f"Done {i} of {len(fileSet)}")
+    if report:
+        import pandas as pd
+        return pd.read_csv(reportFile)
 
-def dehazeFolderOfDirectories(parentDirectory, outputDir= "dehazedFrames", recursiveSearch= False):
+
+def dehazeFolderOfDirectories(parentDirectory:str, outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False):
+    """
+    Convenience wrapper for dehazeDirectorySet for all folders
+    in a parent directory
+    """
     import glob
     import os
     if not parentDirectory.endswith("*"):
-        parentDirector = os.path.join(parentDirectory, "*")
-    for folder in glob.glob(os.path.join(parentDirectory, "*")):
+        parentDirectory = os.path.join(parentDirectory, "*")
+    return dehazeDirectorySet([x for x in glob.glob(os.path.join(parentDirectory, "*"))], outputDir, recursiveSearch, report, checkSections)
+
+def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False):
+    """
+    Run dehazeDirectory on a set of directories.
+
+    Does some changes of defaults appropriate to directory
+    searches, and handles reporting.
+    """
+    import os
+    import textwrap
+    parentDirectory = os.path.commonprefix(directorySet)
+    if not os.path.exists(parentDirectory):
+        # In case there's partial filename overlap
+        parentDirectory = os.path.dirname(parentDirectory)
+    metaReport = os.path.join(parentDirectory, "metaReport.csv")
+    if os.path.exists(metaReport):
+        os.unlink(metaReport)
+    notice = f"""\
+    ========================================================================
+    *** Notice: The total report will be dumped to `{parentDirectory}` ***
+    Per-directory reports will be updated on a per-file basis in their respective output subdirectories (`**/{outputDir}`).
+    The total report will be updated upon each directory's completion.
+    The total report output file will be `{os.path.abspath(metaReport)}`
+    ========================================================================\n\n
+    """
+    if report:
+        print(textwrap.dedent(notice))
+    for folder in directorySet:
         passOutput = os.path.join(folder, outputDir)
         print(f"Starting folder {folder}...")
-        dehazeDirectory(folder, passOutput, recursiveSearch= recursiveSearch)
-        print("\tDone")
+        reportOutO = dehazeDirectory(folder, passOutput, recursiveSearch= recursiveSearch, report= report, checkSections= checkSections)
+        if report:
+            import pandas as pd
+            import csv
+            ############
+            # We're writing this to report as we go.
+            # Since the most common viewer is Excel, and
+            # Microsoft grabs files and never lets go, we
+            # don't want to crap out as soon as someone views
+            # a file while we're trying to write. So, we'll
+            # attempt an append for 10 minutes before giving
+            # up the ghost, and warn the user lots in the
+            # terminal.
+            ############
+            hasWritten = False
+            tries = 0
+            tryLimit = 60
+            waitDelaySeconds = 10
+            while not hasWritten:
+                try:
+                    if os.path.exists(metaReport):
+                        baseReport = pd.read_csv(metaReport)
+                        reportOut = pd.concat([baseReport, reportOutO], ignore_index= True)
+                    else:
+                        reportOut = reportOutO.copy()
+                    reportOut.to_csv(metaReport, quoting= csv.QUOTE_ALL, line_terminator= "\n", index= False)
+                    hasWritten = True
+                except (IOError, PermissionError):
+                    if tries > tryLimit:
+                        raise
+                    import time
+                    print(f"Could not open `{metaReport}`; if you use Excel, please close the file there. The process will abort in {(tryLimit - tries + 1) * waitDelaySeconds} seconds...")
+                    time.sleep(waitDelaySeconds)
+                    tries += 1
+        print(f"\tDone with folder {folder}")
 
-#Prepare the arguments the program shall receive
+# Prepare the arguments for when this is called on the command line
 def __prepareargs__():
     parser = argparse.ArgumentParser(description='Fast Single Image Haze Removal Using Dark Channel Prior.')
     parser.add_argument('-i', nargs=1, type=str, help='input image path', required=True)

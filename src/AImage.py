@@ -53,7 +53,6 @@ class AImage(object):
         if array.dtype != np.float64:
             #cast to float with values from 0 to 1
             array = np.divide(np.asfarray(array), 255.0)
-
         simg = AImage(array)
         return simg
 
@@ -61,16 +60,18 @@ class AImage(object):
     def open(filename):
         try:
             array = imread(filename)
-            #check if the array is float type
-            if array.dtype != np.float64:
-                #cast to float with values from 0 to 1
-                array = np.divide(np.asfarray(array), 255.0)
-
-            img = AImage(array, filename)
-        except IOError:
-            raise IOError
-
+            img = AImage.load(array, filename)
+        except (IOError, PermissionError, FileNotFoundError):
+            raise IOError(f"Couldn't access file {filename}")
         return img
+
+    @staticmethod
+    def load(array:np.ndarray, filename:str= None):
+        #check if the array is float type
+        if array.dtype != np.float64:
+            #cast to float with values from 0 to 1
+            array = np.divide(np.asfarray(array), 255).astype(np.float64)
+        return AImage(array, filename)
 
     @staticmethod
     def save(im, filename):
@@ -82,5 +83,4 @@ class AImage(object):
             simg = AImage(im, filename)
         else:
             raise TypeError('im parameter should be either a np.ndarray or AImage.AImage')
-
         return simg
