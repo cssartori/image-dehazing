@@ -12,8 +12,62 @@ import numpy as np
 from typing import Union
 from PIL import Image
 
-def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False):
+def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarray= None, t:np.ndarray= None, rt:np.ndarray= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray:
     """
+    Dehaze an image
+
+    Parameters
+    =======================
+
+    img: str, np.ndarray
+        A file path or numpy array corresponding to an image
+
+    outputImgFile: str (default= None)
+        When not none, the file to save the output image to
+
+    a: np.ndarray (default= None)
+        Atmospheric light array (computed if None)
+
+    t: np.ndarray (default= None)
+        Transmission array (computed if None)
+
+    rt: np.ndarray (default= None)
+        Raw transmission array (computed if None)
+
+    tmin: float (default= 0.1)
+        Minimum transmission allowed
+
+    ps: int (default= 15)
+        Patch size
+
+    w: float (default= 0.99)
+        Omega weight
+
+    px: float (default= 1e-3)
+        Percentage of pixels for the atmospheric light
+
+    r: int (default= 40)
+        Pixel radius for the guided filter
+
+    eps: float (default= 1e-3)
+        Epsilon of the guided filter
+
+    verbose: bool (default= False)
+
+    report: bool (default= False)
+        If True, returns tuple (img:np.ndarray, stats:list-of-dicts)
+        with stats containing statistics for the image and optionally
+        sections
+
+    checkSections: bool (default= False)
+        Also run stats on horizontal slices of the image
+
+    Returns
+    ================================
+
+    np.ndarray : dehazed image
+
+    If report is True, returns (np.ndarray, list)
     """
     import os
     import datetime as dt
@@ -169,8 +223,40 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a= None, t
         return oImg3, [stats] + otherStats
     return oImg3
 
-def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg", "jpeg"], a= None, t= None, rt= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, recursiveSearch:bool= True, report:bool= False, checkSections:bool= False):
+def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "jpg", "jpeg"], verbose:bool= False, recursiveSearch:bool= True, report:bool= False, checkSections:bool= False, **kwargs):
     """
+    Dehaze a directory of images
+
+    Parameters
+    =======================
+
+    directory: str
+
+    outputDirectory: str (default= None)
+        Where to save the outputs. If None, they'll be saved in the read
+        directory. If a str, but the directory does not exist, an attempt
+        will be made to create it.
+
+    extensions: list (default= ["png", "jpg", "jpeg"])
+        List of extensions of images to check.
+
+    verbose: bool (default= False)
+
+    recursiveSearch: bool (default= True)
+        Deeply and recursively search directories
+
+    report: bool (default= False)
+        If True, returns a Pandas DataFrame of the report.
+
+    checkSections: bool (default= False)
+
+    Also accepts dehazing kwarg parameters to pass to dehazeImage().
+
+    Returns
+    ================================
+
+    If report is True, returns a Pandas DataFrame of the report.
+    Otherwise, returns None
     """
     import glob
     import os
@@ -180,6 +266,7 @@ def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg",
         if not os.path.exists(outputDirectory):
             os.mkdir(outputDirectory)
     fileSet = list()
+    extensions = frozenset(extensions)
     for extension in extensions:
         if recursiveSearch:
             files = glob.glob(os.path.join(directory, "**", f"*.{extension}"), recursive= True)
@@ -195,7 +282,7 @@ def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg",
         filenameParts = os.path.basename(filename).split(".")
         fileBase = filenameParts[:-1]
         outFile = os.path.join(outputDirectory, ".".join(fileBase + ["dehazed", filenameParts[-1]]))
-        results = dehazeImage(filename, outFile, a, t, rt, tmin, ps, w, px, r, eps, verbose= verbose, report= report, checkSections= checkSections)
+        results = dehazeImage(filename, outFile, verbose= verbose, report= report, checkSections= checkSections, **kwargs)
         if report:
             # Handle output reporting
             loggedReport= False
@@ -261,7 +348,7 @@ def dehazeDirectory(directory, outputDirectory= None, extensions= ["png", "jpg",
         return pd.read_csv(reportFile)
 
 
-def dehazeFolderOfDirectories(parentDirectory:str, outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False):
+def dehazeFolderOfDirectories(parentDirectory:str, outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False, **kwargs):
     """
     Convenience wrapper for dehazeDirectorySet for all folders
     in a parent directory
@@ -270,9 +357,9 @@ def dehazeFolderOfDirectories(parentDirectory:str, outputDir:str= "dehazedFrames
     import os
     if not parentDirectory.endswith("*"):
         parentDirectory = os.path.join(parentDirectory, "*")
-    return dehazeDirectorySet([x for x in glob.glob(os.path.join(parentDirectory, "*"))], outputDir, recursiveSearch, report, checkSections)
+    return dehazeDirectorySet([x for x in glob.glob(os.path.join(parentDirectory, "*"))], outputDir, recursiveSearch, report, checkSections, **kwargs)
 
-def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False):
+def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDir:str= "dehazedFrames", recursiveSearch:bool= False, report:bool= True, checkSections:bool= False, **kwargs):
     """
     Run dehazeDirectory on a set of directories.
 
@@ -301,7 +388,7 @@ def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDi
     for folder in directorySet:
         passOutput = os.path.join(folder, outputDir)
         print(f"Starting folder {folder}...")
-        reportOutO = dehazeDirectory(folder, passOutput, recursiveSearch= recursiveSearch, report= report, checkSections= checkSections)
+        reportOutO = dehazeDirectory(folder, passOutput, recursiveSearch= recursiveSearch, report= report, checkSections= checkSections, **kwargs)
         if report:
             import pandas as pd
             import csv
@@ -408,9 +495,9 @@ if __name__ == '__main__':
         timer = bool(args["c"][0])
 
     if not timer:
-        _ = dehazeImage(input_img_file, output_img_file, a, t, rt, tmin, ps, w, px, r, eps, m)
+        _ = dehazeImage(input_img_file, output_img_file, a= a, t= t, rt= rt, tmin= tmin, ps= ps, w= w, px= px, r= r, eps= eps, verbose= m)
     else:
         for i in range(10):
             print(f"Iteration {i}")
-            _ = dehazeImage(input_img_file, output_img_file, a, t, rt, tmin, ps, w, px, r, eps, m)
+            _ = dehazeImage(input_img_file, output_img_file, a= a, t= t, rt= rt, tmin= tmin, ps= ps, w= w, px= px, r= r, eps= eps, verbose= m)
     print('Dehazing finished!')

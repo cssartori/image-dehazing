@@ -8,14 +8,14 @@ cupy ~= 2.0.0
 ImageHash ~= 4.1.0
 
 # dehazer.py: 13
-Pillow ~= 4.1.1
+Pillow ~= 4.3
 
 # AtmLight.py: 10
 # DarkChannel.py: 10
 # Radiance.py: 10
 # Refine.py: 15
 # Transmission.py: 14
-numba == 0.49.0
+numba ~= 0.49.1
 
 # AImage.py: 10
 # dehazer.py: 31

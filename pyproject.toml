@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "dehazing"
+version = "0.13.4"
+description = "Dehazing using Dark Channel Prior"
+authors = ["Philip Kahn <pkahn@costar.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.6.10"
+cupy = "~2.0.0"
+ImageHash = "~4.1.0"
+Pillow = "~4.3"
+numba = "~0.49.1"
+numpy = "~1.18.4"
+pandas = "~0.25.3"
+scikit_image = "~0.15.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

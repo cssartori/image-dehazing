@@ -14,7 +14,25 @@ In order to run the program one needs:
 
 * [*numba*](https://numba.pydata.org/numba-doc/latest/user/installing.html) installed.
 
-Having those requirements, one should be able to run the program with the following command line (considering one is in the *src* folder):
+The `requirements.txt` file enumerates the requirements (`pip install -r requirements.txt`).
+
+
+### As an import
+
+The preferred way to run this is by importing your preferred top-level functions from `dehazer.py`, eg,
+
+```python
+from dehazer import dehazeDirectory
+dehazeDirectory("dehazing/test_images", "dehazing/test_results", verbose= True, report= True, checkSections= True)
+```
+
+`dehazeImage` and `dehazeDirectory` are the two main top-level functions; the convenience functions `dehazeDirectorySet` and `dehazeFolderOfDirectories` are shims around those.
+
+Because of the just-in-time nature of Numba, the biggest speed benefits occur when the internals are run as a loop in a single environment instance, rather than many calls to single images. Numba compilation will induce an approximately 2-5s delay per major step for the first processed image, which is avoided for all subsequent images if the Python environment doesn't have to be reloaded.
+
+### From the command line
+
+With the performance caveat noted above, one should be able to run the program with the following command line (considering one is in the *src* folder):
 
 ```
 $ python main.py -i ../images/cones.jpg -o ../results/cones_res.jpg
@@ -29,6 +47,8 @@ $ python main.py -h
 ```
 
 This will display the set of arguments available.
+
+**Importantly**, do not run this command-line call as a loop. You will lose much of the performance benefits otherwise brought to the table by Numba.
 
 ## Benchmarks and Results ##
 
