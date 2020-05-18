@@ -1,3 +1,8 @@
 #!python3
-from dehazer import dehazeDirectory
-dehazeDirectory("dehazing/test_images", "dehazing/test_results", verbose= True, report= True, checkSections= True)
+import os
+from dehazer import dehazeDirectory #pylint: disable= unresolved-import
+try:
+    assert os.path.exists("../images")
+    dehazeDirectory("../images", "../results", verbose= True)
+except (FileNotFoundError, AssertionError):
+    dehazeDirectory("images", "results", verbose= True)

@@ -12,6 +12,8 @@ import numpy as np
 from typing import Union
 from PIL import Image
 
+# cSpell:words dehazed, phash, percep, prepareargs, loadtxt, tmin, nargs
+
 def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarray= None, t:np.ndarray= None, rt:np.ndarray= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray:
     """
     Dehaze an image
@@ -119,23 +121,23 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
     originalHashC = colorhash(Image.fromarray((255 * img.array()).astype(np.uint8)))
     newHash = phash(Image.fromarray((255 * oImg).astype(np.uint8)))
     newHashC = colorhash(Image.fromarray((255 * oImg).astype(np.uint8)))
-    hashDiff = abs(newHash - originalHash)
-    hashDiff2 = abs(newHashC - originalHashC)
+    percepHashDiff = abs(newHash - originalHash)
+    colorHashDiff = abs(newHashC - originalHashC)
     # Check the differences between input and output
     if verbose:
         # aerial: 10
         # RED: 4
         print(inFilename)
-        print("Perceptual hash:", hashDiff)
-        print("Color hash:", hashDiff2)
-    if hashDiff >= 20 and hashDiff2 >= 5:
+        print("Perceptual hash:", percepHashDiff)
+        print("Color hash:", colorHashDiff)
+    if percepHashDiff >= 20 and colorHashDiff >= 5:
         import warnings
         if outputImgFile is None:
             warnings.warn("There may be an issue with the dehazed image")
         else:
             warnings.warn(f"There may be an issue with the dehazed image `{outputImgFile}`")
     # Generate a final exposure-corrected image
-    if hashDiff > 1 and (hashDiff2 > 2 or hashDiff >= 4 or totalLight >= 2.75):
+    if percepHashDiff > 1 and (colorHashDiff > 2 or percepHashDiff >= 4 or totalLight >= 2.75):
         needed = True
         try:
             gamma = np.clip(1.1, 1, 1.2) # Brightness
@@ -147,11 +149,11 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
             #oImg3 = exposure.adjust_sigmoid(oImg2, gain= gain)
             oImg3 = (oImg2 * 255).astype(np.uint8)
         except ValueError as e:
-            print(f"Did not need to dehaze; nonsensical result for hash difference {hashDiff} & {hashDiff2}: {e}")
+            print(f"Did not need to dehaze; nonsensical result for hash difference {percepHashDiff} & {colorHashDiff}: {e}")
             oImg3 = (255 * img.array()).astype(np.uint8)
     else:
         needed = False
-        print(f"Dehazing made no or trivial perceptual changes to the data in `{inFilename}` (hash difference {hashDiff} & {hashDiff2})")
+        print(f"Dehazing made no or trivial perceptual changes to the data in `{inFilename}` (hash difference {percepHashDiff} & {colorHashDiff})")
         oImg3 = (255 * img.array()).astype(np.uint8)
     #save the image to file
     if saveImage:
@@ -165,12 +167,13 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
         # care about haze in a subsection of an image and,
         # therefore, don't want to manipulate the image
         # unless haze exists in this "bad" location
+        otherStatsDict = {}
         h, w = img.array().shape[:2]
         refImg = (255 * img.array()).astype(np.uint8)
         sections = {
-            "top": ((0, h//4), (0, w)),
-            "middle": ((h//4, h//2), (0, w)),
-            "bottom": ((h//2, h), (0, w)),
+            "topQuarter": ((0, h//4), (0, w)),
+            "middleQuarter": ((h//4, h//2), (0, w)),
+            "bottomHalf": ((h//2, h), (0, w)),
         }
         for corner, slices in sections.items():
             if verbose:
@@ -193,7 +196,9 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
             sHashDiff2 = abs(sectionCNewHash - sectionCOHash)
             needed = sHashDiff > 1 and (sHashDiff2 > 2 or sHashDiff >= 4) # or totalLight >= 2.75)
             qs = {
-                # TODO ADD STATS
+                "perceptualHashDifference": sHashDiff,
+                "colorHashDifference": sHashDiff2,
+                "totalLight": "",
                 "needed": needed,
                 "needMeasure": {
                     "perceptualBasic": sHashDiff > 1,
@@ -201,25 +206,41 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
                     "colorShift": sHashDiff2 > 2,
                     "atmosphericLight": False
                 },
-                "runTimeSeconds": np.around((dt.datetime.now() - startTime).total_seconds(), 3),
-                "style": f"section_{corner}"
+                "runTimeSeconds": "-",
+                "style": f"section_{corner}",
+                "topHalfBad": None,
+                "topQuarterBad": None,
+                "wholeImageBad": None,
+                "wholeImageGood": None
             }
-            otherStats += [qs]
+            otherStatsDict[corner] = qs
             if quadOut is not None:
                 io.imsave(quadOut, oImg3[h0:h1, w0:w1])
                 print(f"\twrote subimage `{quadOut}`")
     if report:
         stats = {
+            "perceptualHashDifference": percepHashDiff,
+            "colorHashDifference": colorHashDiff,
+            "totalLight": totalLight,
             "needed": needed,
             "needMeasure": {
-                "perceptualBasic": hashDiff > 1,
-                "perceptualStrong": hashDiff >= 4,
-                "colorShift": hashDiff2 > 2,
+                "perceptualBasic": percepHashDiff > 1,
+                "perceptualStrong": percepHashDiff >= 4,
+                "colorShift": colorHashDiff > 2,
                 "atmosphericLight": totalLight >= 2.75
             },
             "runTimeSeconds": np.around((dt.datetime.now() - startTime).total_seconds(), 3),
             "style": "fullPhoto"
         }
+        if checkSections:
+            # if there's haze in the bottom half, the whole frame is bad.  If there's frame in the next quarter up, the top half is bad.  if there's haze in the top quarter, the top quarter is bad.  otherwise the whole frame is good.
+            stats["topQuarterBad"] = otherStatsDict["topQuarter"]["needed"]
+            stats["topHalfBad"] = otherStatsDict["middleQuarter"]["needed"] or stats["topQuarterBad"]
+            stats["wholeImageBad"] = otherStatsDict["bottomHalf"]["needed"] or stats["needed"]
+            stats["wholeImageGood"] = not (stats["topQuarterBad"] or stats["topHalfBad"] or stats["wholeImageBad"])
+            # Aggregate it into a list
+            for _, statSet in otherStatsDict.items():
+                otherStats += [statSet]
         return oImg3, [stats] + otherStats
     return oImg3
 
@@ -278,6 +299,14 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
     if report and os.path.exists(reportFile):
         os.unlink(reportFile)
     print(f"Going to convert {len(fileSet)} images")
+    def badness(thruthy):
+        if thruthy is None:
+            return ""
+        return "Bad" if thruthy else "OK"
+    def goodness(thruthy):
+        if thruthy is None:
+            return ""
+        return "Good" if thruthy else "Bad"
     for i, filename in enumerate(fileSet, 1):
         filenameParts = os.path.basename(filename).split(".")
         fileBase = filenameParts[:-1]
@@ -303,15 +332,31 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
                 if verbose and not loggedReport:
                     print(f"Going to write to `{reportFile}` (with headers? {writeHeader})")
                     loggedReport = True
+                commonPrefix = os.path.commonprefix([os.path.abspath(os.path.normpath(directory)), os.path.abspath(os.path.normpath(os.path.dirname(filename)))])
+                fileDir = os.path.abspath(os.path.normpath(os.path.dirname(filename))).replace(commonPrefix, "")
+                if len(fileDir) == 0:
+                    fileDir = "./"
                 row = {
                     "Search Directory": os.path.abspath(os.path.normpath(directory)),
-                    "File Directory": os.path.normpath(os.path.dirname(filename)),
+                    "File Directory": fileDir,
                     "Filename": os.path.basename(filename),
                     "Processing Time (s)": stats["runTimeSeconds"],
                     "Style": stats["style"],
-                    "Needed?": stats["needed"],
-                    "Needed Score": howMuchNeeded,
+                    "Hazy?": "Hazy" if stats["needed"] else "Clear",
+                    "Perceptual Hash Difference": stats["perceptualHashDifference"],
+                    "Color Hash Difference": stats["colorHashDifference"],
+                    "Total Light": stats["totalLight"],
                     "Needed Details": stats["needMeasure"],
+                    "Top Quarter Status": badness(stats["topQuarterBad"]),
+                    "Top Half Status": badness(stats["topHalfBad"]),
+                    "Bottom Half ('Whole Image') status": badness(stats["wholeImageBad"]),
+                    "Whole Image": goodness(stats["wholeImageGood"]),
+                    "isBadTopQuarter": stats["topQuarterBad"] if stats["topQuarterBad"] is not None else "",
+                    "isBadTopHalf": stats["topHalfBad"] if stats["topHalfBad"] is not None else "",
+                    "isBadBottomHalfOrWholeImage": stats["wholeImageBad"] if stats["wholeImageBad"] is not None else "",
+                    "isValidImage": stats["wholeImageGood"] if stats["wholeImageGood"] is not None else "",
+                    "dehazingNeeded": stats["needed"],
+
                 }
                 ############
                 # We're writing this to report as we go.

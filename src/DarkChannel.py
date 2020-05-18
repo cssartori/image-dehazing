@@ -30,7 +30,7 @@ def estimate(imageArray, ps=15):
 
     return getJDark(offset, np.empty(imageArray.shape[:2]), impad)
 
-@njit(parallel=True)
+@njit(parallel=True, cache= True)
 def getJDark(offset:int, jdark:tuple, paddedImage:np.ndarray) -> np.ndarray:
     #Jdark is the Dark channel to be found
     for i in prange(offset, (jdark.shape[0]+offset)):

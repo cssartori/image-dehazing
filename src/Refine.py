@@ -97,7 +97,7 @@ def guided_filter(imageArray, p, r=40, eps=1e-3):
         pp = cp.asnumpy(pp)
     return pp
 
-@njit # Row dependencies means can't be parallel
+@njit(cache= True) # Row dependencies means can't be parallel
 def yCumSum(a):
     """
     Numba based computation of y-direction
@@ -109,7 +109,7 @@ def yCumSum(a):
         out[i, :] = a[i, :] + out[i - 1, :]
     return out
 
-@njit(parallel= True)
+@njit(parallel= True, cache= True)
 def xCumSum(a):
     """
     Numba-based parallel computation
@@ -130,7 +130,7 @@ def _boxFilter(m, r, gpu= hasGPU):
     return out
 
 
-@njit
+@njit(cache= True)
 def __boxfilter__(m, r):
     """
     Fast box filtering implementation, O(1) time.
@@ -170,7 +170,7 @@ def __boxfilter__(m, r):
     mp[:, -r: ] = xSum[:, -1].copy().reshape(-1, 1).repeat(r).reshape((-1, r)) - xSum[:, W-(2*r)-1:W-r-1]
     return mp
 
-@njit(parallel=True)
+@njit(parallel=True, cache= True)
 def doGridLoop(fillShape:tuple, cov_ip:np.ndarray, var_i:np.ndarray, eps:float) -> np.ndarray:
     H, W, C = fillShape
     # CuPY's internal loop here is VERY slow

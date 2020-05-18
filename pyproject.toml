@@ -4,6 +4,8 @@ version = "0.13.4"
 description = "Dehazing using Dark Channel Prior"
 authors = ["Philip Kahn <pkahn@costar.com>"]
 license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tigerhawkvok/image-dehazing"
 
 [tool.poetry.dependencies]
 python = "^3.6.10"
