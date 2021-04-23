@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dehazing"
-version = "1.0.0"
+version = "1.0.1"
 description = "Dehazing using Dark Channel Prior"
 authors = ["Philip Kahn <pkahn@costar.com>"]
 license = "MIT"
