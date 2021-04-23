@@ -47,7 +47,7 @@ class AImage(object):
         """
         return self.__filename__
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> np.ndarray:
         """
         Get a slice of the image
         """
@@ -59,7 +59,7 @@ class AImage(object):
         """
         self.__img_array__[index] = value
 
-    def array(self):
+    def array(self) -> np.ndarray:
         """
         Get the image array
         """

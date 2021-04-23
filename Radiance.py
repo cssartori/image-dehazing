@@ -12,7 +12,7 @@ from numba import njit, prange
 #cSpell:words amax
 
 @njit(parallel= True, fastmath= True, cache= True)
-def recover(imageArray, atm, t, tmin=0.1):
+def recover(imageArray, atm, t, tmin=0.1) -> np.ndarray:
     """
     Radiance recovery. According to section (4.3) and equation (16) in the reference paper
     http://kaiminghe.com/cvpr09/index.html

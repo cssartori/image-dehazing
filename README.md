@@ -1,4 +1,4 @@
-# **Fast Image Dehazing Using Dark Channel Prior For Python 3.6+**
+# **Fast Image Dehazing Using Dark Channel Prior For Python 3.7+**
 
 An implementation of the algorithm described in *Single Image Haze Removal Using Dark Channel Prior* [He et al. 09] ([page](http://kaiminghe.com/cvpr09/)), with the modifications proposed in *Guided Filtering* [He et al. 10] for faster transmission refinement.
 
@@ -6,7 +6,7 @@ An implementation of the algorithm described in *Single Image Haze Removal Using
 
 In order to run the program one needs:
 
-* [*Python 3.6+*](https://www.python.org/) installed
+* [*Python 3.7+*](https://www.python.org/) installed
 
 * [*NumPy*](http://www.numpy.org/) installed.
 

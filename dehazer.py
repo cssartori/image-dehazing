@@ -4,7 +4,7 @@ Fast Single Image Haze Removal Using Dark Channel Prior
 Original by https://github.com/cssartori
 
 @author Philip Kahn
-@date 20200501
+@date 20210423
 """
 import argparse
 import os
@@ -18,7 +18,7 @@ import time
 import pandas as pd
 from skimage import exposure, io
 import numpy as np
-from typing import Union
+from typing import Union, Optional
 from PIL import Image
 from imagehash import phash, colorhash
 try:
@@ -31,7 +31,7 @@ except (ModuleNotFoundError, ImportError):
 
 #pylint: disable= dangerous-default-value
 
-def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarray= None, t:np.ndarray= None, rt:np.ndarray= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray: #pylint:disable= redefined-outer-name
+def dehazeImage(img:Union[str, np.ndarray], outputImgFile:Optional[str]= None,  a:Optional[np.ndarray]= None, t:Optional[np.ndarray]= None, rt:Optional[np.ndarray]= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray: #pylint:disable= redefined-outer-name
     """
     Dehaze an image
 
@@ -250,7 +250,7 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
         return oImg3, [stats] + otherStats
     return oImg3
 
-def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "jpg", "jpeg"], verbose:bool= False, recursiveSearch:bool= True, report:bool= False, checkSections:bool= False, **kwargs):
+def dehazeDirectory(directory:str, outputDirectory:Optional[str]= None, extensions= ["png", "jpg", "jpeg"], verbose:bool= False, recursiveSearch:bool= True, report:bool= False, checkSections:bool= False, **kwargs) -> pd.DataFrame:
     """
     Dehaze a directory of images
 
@@ -288,8 +288,8 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
     if outputDirectory is None:
         outputDirectory = directory
     else:
-        if not os.path.exists(outputDirectory):
-            os.mkdir(outputDirectory)
+        if not os.path.isdir(outputDirectory):
+            os.makedirs(outputDirectory)
     fileSet = list()
     extensions = frozenset(extensions)
     for extension in extensions:

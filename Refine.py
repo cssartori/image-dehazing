@@ -9,6 +9,7 @@ Original by https://github.com/cssartori
 import numpy as np
 
 from numba import jit, njit, prange
+from typing import Callable
 try:
     from numba.core.errors import NumbaDeprecationWarning, NumbaWarning
 except (ModuleNotFoundError, ImportError):
@@ -24,17 +25,24 @@ except Exception: #pylint: disable= broad-except
 
 
 @jit(parallel=True, fastmath= True)
-def guided_filter(imageArray, p, r=40, eps=1e-3):
+def guided_filter(imageArray:np.ndarray, p:np.ndarray, r:int= 40, eps:float= 1e-3) -> np.ndarray:
     """
     Filter refinement under the guidance of an image. O(N) implementation.
     According to the reference paper http://research.microsoft.com/en-us/um/people/kahe/eccv10/
 
     Parameters
     -----------
-    imageArray:    an H*W RGB image used as guidance.
-    p:        the H*W filter to be guided
-    r:        the radius of the guided filter (in pixels, default=40)
-    eps:      the epsilon parameter (default=1e-3)
+    imageArray: np.ndarray
+        an H*W RGB image used as guidance.
+
+    p: np.ndarray
+        the H*W filter to be guided
+
+    r: int (in pixels, default=40)
+        the radius of the guided filter
+
+    eps: float (default=1e-3)
+        the epsilon parameter
 
     Return
     -----------
@@ -100,7 +108,7 @@ def guided_filter(imageArray, p, r=40, eps=1e-3):
     return pp
 
 @njit(cache= True) # Row dependencies means can't be parallel
-def yCumSum(a):
+def yCumSum(a:np.ndarray) -> np.ndarray:
     """
     Numba based computation of y-direction
     cumulative sum. Can't be parallel!
@@ -112,7 +120,7 @@ def yCumSum(a):
     return out
 
 @njit(parallel= True, cache= True)
-def xCumSum(a):
+def xCumSum(a:np.ndarray) -> np.ndarray:
     """
     Numba-based parallel computation
     of X-direction cumulative sum
@@ -123,7 +131,7 @@ def xCumSum(a):
     return out
 
 @jit
-def _boxFilter(m, r, gpu= hasGPU):
+def _boxFilter(m:np.ndarray, r:int, gpu:bool= hasGPU) -> np.ndarray:
     if gpu:
         m = cp.asnumpy(m)
     out = __boxfilter__(m, r)
@@ -133,7 +141,7 @@ def _boxFilter(m, r, gpu= hasGPU):
 
 
 @njit(cache= True)
-def __boxfilter__(m, r):
+def __boxfilter__(m:np.ndarray, r:int):
     """
     Fast box filtering implementation, O(1) time.
 
@@ -215,7 +223,7 @@ try:
 except Exception: #pylint: disable= broad-except
     fnPool = list()
 
-def _matrixOp(fn, *args, **kwargs):
+def _matrixOp(fn:Callable, *args, **kwargs):
     if not hasGPU:
         return fn(*args, **kwargs)
     if isinstance(fn, str):

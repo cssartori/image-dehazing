@@ -10,15 +10,19 @@ import numpy as np
 from numba import jit, njit, prange
 
 @jit
-def estimate(imageArray, ps=15):
+def estimate(imageArray:np.ndarray, ps:int= 15) -> np.ndarray:
     """
     Dark Channel estimation. According to equation (5) in the reference paper
     http://research.microsoft.com/en-us/um/people/kahe/cvpr09/
 
     Parameters
     -----------
-    imageArray:   an H*W RGB  hazed image
-    ps:      the patch size (a patch P(x) has size (ps x ps) and is centered at pixel x)
+
+    imageArray: np.ndarray
+        an H*W RGB  hazed image
+
+    ps: int
+        the patch size (a patch P(x) has size (ps x ps) and is centered at pixel x)
 
     Return
     -----------
@@ -27,7 +31,6 @@ def estimate(imageArray, ps=15):
     offset = ps // 2
     #Padding of the image to have windows of ps x ps size centered at each image pixel
     imPad = np.pad(imageArray, [(offset, offset), (offset, offset), (0, 0)], 'edge')
-
     return getJDark(offset, np.empty(imageArray.shape[:2]), imPad)
 
 @njit(parallel=True, cache= True)
