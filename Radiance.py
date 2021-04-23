@@ -9,6 +9,8 @@ Original by https://github.com/cssartori
 import numpy as np
 from numba import njit, prange
 
+#cSpell:words amax
+
 @njit(parallel= True, fastmath= True, cache= True)
 def recover(imageArray, atm, t, tmin=0.1):
     """
@@ -31,7 +33,7 @@ def recover(imageArray, atm, t, tmin=0.1):
     j = np.empty(imageArray.shape)
 
     #equation (16)
-    for c in prange(0, imageArray.shape[2]):
+    for c in prange(0, imageArray.shape[2]): #pylint: disable= not-an-iterable
         j[:,:, c] = ((imageArray[:,:, c]-atm[c])/np.maximum(t[:,:], tmin))+atm[c]
 
     return j/np.amax(j)

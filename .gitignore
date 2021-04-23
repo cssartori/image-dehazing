@@ -7,3 +7,5 @@ dehazing.zip
 conv2to3.py
 .vscode
 src/debug.*
+debug.*
+poetry-convert.py

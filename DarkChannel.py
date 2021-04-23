@@ -22,22 +22,25 @@ def estimate(imageArray, ps=15):
 
     Return
     -----------
-    The dark channel estimated in imageArray, jdark (a matrix H*W).
+    The dark channel estimated in imageArray, jDark (a matrix H*W).
     """
     offset = ps // 2
     #Padding of the image to have windows of ps x ps size centered at each image pixel
-    impad = np.pad(imageArray, [(offset, offset), (offset, offset), (0, 0)], 'edge')
+    imPad = np.pad(imageArray, [(offset, offset), (offset, offset), (0, 0)], 'edge')
 
-    return getJDark(offset, np.empty(imageArray.shape[:2]), impad)
+    return getJDark(offset, np.empty(imageArray.shape[:2]), imPad)
 
 @njit(parallel=True, cache= True)
-def getJDark(offset:int, jdark:tuple, paddedImage:np.ndarray) -> np.ndarray:
-    #Jdark is the Dark channel to be found
-    for i in prange(offset, (jdark.shape[0]+offset)):
-        for j in prange(offset, (jdark.shape[1]+offset)):
+def getJDark(offset:int, jDark:tuple, paddedImage:np.ndarray) -> np.ndarray:
+    """
+    Get the dark channel
+    """
+    #jDark is the Dark channel to be found
+    for i in prange(offset, (jDark.shape[0]+offset)): #pylint: disable= not-an-iterable
+        for j in prange(offset, (jDark.shape[1]+offset)): #pylint: disable= not-an-iterable
             #creates the patch P(x) of size ps x ps centered at x
             patch = paddedImage[i-offset:i+1+offset, j-offset:j+1+offset]
             #selects the minimum value in this patch and set as the dark channel of pixel x
-            jdark[i-offset, j-offset] = patch.min()
+            jDark[i-offset, j-offset] = patch.min()
 
-    return jdark
+    return jDark

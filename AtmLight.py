@@ -10,7 +10,7 @@ import numpy as np
 from numba import jit
 
 @jit
-def estimate(imageArray, jdark, px=1e-3):
+def estimate(imageArray, jDark, px=1e-3):
     """
     Automatic atmospheric light estimation. According to section (4.4) in the reference paper
     http://kaiminghe.com/cvpr09/index.html
@@ -18,8 +18,8 @@ def estimate(imageArray, jdark, px=1e-3):
     Parameters
     -----------
     imageArray:    an H*W RGB hazed image
-    jdark:    the dark channel of imageArray
-    px:       the percentage of brigther pixels to be considered (default=1e-3, i.e. 0.1%)
+    jDark:    the dark channel of imageArray
+    px:       the percentage of brighter pixels to be considered (default=1e-3, i.e. 0.1%)
 
     Return
     -----------
@@ -27,21 +27,21 @@ def estimate(imageArray, jdark, px=1e-3):
     """
 
     #reshape both matrix to get it in 1-D array shape
-    imgavec = np.resize(imageArray, (imageArray.shape[0]*imageArray.shape[1], imageArray.shape[2]))
-    jdarkvec = np.reshape(jdark, jdark.size)
+    imgAVec = np.resize(imageArray, (imageArray.shape[0]*imageArray.shape[1], imageArray.shape[2]))
+    jDarkVec = np.reshape(jDark, jDark.size)
 
     #the number of pixels to be considered
-    numpx = np.int(jdark.size * px)
+    numPixels = np.int(jDark.size * px)
 
-    #index sort the jdark channel in descending order
-    isjd = np.argsort(-jdarkvec)
+    #index sort the jDark channel in descending order
+    isJD = np.argsort(-jDarkVec)
 
-    asum = np.array([0.0, 0.0, 0.0])
-    for i in range(0, numpx):
-        asum[:] += imgavec[isjd[i],:]
+    arraySum = np.array([0.0, 0.0, 0.0])
+    for i in range(0, numPixels):
+        arraySum[:] += imgAVec[isJD[i],:]
 
     A = np.array([0.0, 0.0, 0.0])
-    A[:] = asum[:]/numpx
+    A[:] = arraySum[:]/numPixels
 
     #returns the calculated airlight A
     return A

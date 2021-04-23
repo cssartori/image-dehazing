@@ -1,25 +1,8 @@
+#!python3
 """
 Fast Single Image Haze Removal Using Dark Channel Prior
 Original by https://github.com/cssartori
 
-@author Philip Kahn
-@date 20200501
-"""
-try:
-    import DarkChannel
-    import AtmLight
-    import Transmission
-    import Refine
-    import Radiance
-except ModuleNotFoundError:
-    from . import DarkChannel
-    from . import AtmLight
-    from . import Transmission
-    from . import Refine
-    from . import Radiance
-import numpy as np
-
-"""
 Main References
 [1] Single Image Haze Removal Using Dark Channel Prior (2009)
     http://kaiminghe.com/cvpr09/index.html
@@ -27,13 +10,30 @@ Main References
 [2] Guided Image Filtering (2010)
     http://kaiminghe.com/eccv10/index.html
 
+@author Philip Kahn
+@date 20200501
 """
+
+import numpy as np
 try:
+    import DarkChannel
+    import AtmLight
+    import Transmission
+    import Refine
+    import Radiance
     from timeit_local import timeit
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
+    # pylint: disable= relative-beyond-top-level
+    from . import DarkChannel
+    from . import AtmLight
+    from . import Transmission
+    from . import Refine
+    from . import Radiance
     from .timeit_local import timeit
 
-def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3, r=40, eps=1e-3, m=False, returnLight= False):
+
+
+def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3, r=40, eps=1e-3, m=False, returnLight= False): #pylint: disable= unused-argument
     """
     Application of the dehazing algorithm, as described in section (4) of the reference paper
     http://kaiminghe.com/cvpr09/index.html
@@ -56,22 +56,22 @@ def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3
     -----------
     The dehazed image version of imageArray, dehazed (a H*W RGB matrix).
     """
-    def doNothing(*args, **kwargs):
+    def doNothing(*args, **kwargs): #pylint: disable= unused-argument
         return
     if m:
         timeDisp = print
     else:
         timeDisp = doNothing
     with timeit("\tDark channel estimated in", logFn= timeDisp):
-        jdark = DarkChannel.estimate(imageArray, ps)
-    #return jdark
+        jDark = DarkChannel.estimate(imageArray, ps)
+    #return jDark
     #if no atmospheric given
-    if a == None:
+    if a is None:
         with timeit("\tAtmospheric light estimated in", logFn= timeDisp):
-            a = AtmLight.estimate(imageArray, jdark)
+            a = AtmLight.estimate(imageArray, jDark)
 
     #if no raw transmission and complete transmission given
-    if rt == None and t == None:
+    if rt is None and t is None:
         with timeit("\tTransmission estimated in", logFn= timeDisp):
             rt = Transmission.estimate(imageArray, a, w)
         #threshold of raw transmission
@@ -79,7 +79,7 @@ def dehaze(imageArray, a=None, t=None, rt=None, tmin=0.1, ps=15, w=0.95, px=1e-3
 
 
     #if no complete transmission given, refine the raw using guided filter
-    if t == None:
+    if t is None:
         with timeit("\tRefinement filter run in", logFn= timeDisp):
             t = Refine.guided_filter(imageArray, rt)
 

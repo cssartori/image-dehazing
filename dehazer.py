@@ -7,14 +7,31 @@ Original by https://github.com/cssartori
 @date 20200501
 """
 import argparse
-import sys
+import os
+import datetime as dt
+import glob
+import textwrap
+import gc
+import warnings
+import csv
+import time
+import pandas as pd
+from skimage import exposure, io
 import numpy as np
 from typing import Union
 from PIL import Image
+from imagehash import phash, colorhash
+try:
+    from AImage import AImage
+    from Dehaze import dehaze
+except (ModuleNotFoundError, ImportError):
+    # pylint: disable= relative-beyond-top-level
+    from .AImage import AImage
+    from .Dehaze import dehaze
 
-# cSpell:words dehazed, phash, percep, prepareargs, loadtxt, tmin, nargs
+#pylint: disable= dangerous-default-value
 
-def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarray= None, t:np.ndarray= None, rt:np.ndarray= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray:
+def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarray= None, t:np.ndarray= None, rt:np.ndarray= None, tmin:float= 0.1, ps:int= 15, w:float= 0.99, px:float= 1e-3, r:int= 40, eps:float= 1e-3, verbose:bool= False, report:bool= False, checkSections:bool= False) -> np.ndarray: #pylint:disable= redefined-outer-name
     """
     Dehaze an image
 
@@ -71,16 +88,7 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
 
     If report is True, returns (np.ndarray, list)
     """
-    import os
-    import datetime as dt
-    from skimage import exposure, io
     startTime = dt.datetime.now()
-    try:
-        from AImage import AImage
-        from Dehaze import dehaze
-    except ModuleNotFoundError:
-        from .AImage import AImage
-        from .Dehaze import dehaze
     # Image loading
     saveImage = isinstance(outputImgFile, str)
     if not saveImage:
@@ -94,10 +102,10 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
             img = AImage.open(img)
             if verbose:
                 print(f"Image `{inFilename}` opened.")
-        except (IOError, FileNotFoundError):
-            raise FileNotFoundError(f"File `{os.path.abspath(img)}`` cannot be found.")
         except PermissionError:
             raise PermissionError(f"Permission denied reading `{os.path.abspath(img)}`")
+        except (IOError, FileNotFoundError):
+            raise FileNotFoundError(f"File `{os.path.abspath(img)}`` cannot be found.")
     elif isinstance(img, np.ndarray):
         inFilename = None
         img = AImage.load(img)
@@ -116,7 +124,6 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
         oImg = oImgO.copy()
     oImg = np.clip(exposure.rescale_intensity(oImg, in_range= (np.min(img.array()), np.max(img.array()))), 0, 255)
     # Compare to original, if sufficiently dehazed do exposure correction
-    from imagehash import phash, colorhash
     originalHash = phash(Image.fromarray((255 * img.array()).astype(np.uint8)))
     originalHashC = colorhash(Image.fromarray((255 * img.array()).astype(np.uint8)))
     newHash = phash(Image.fromarray((255 * oImg).astype(np.uint8)))
@@ -131,7 +138,6 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
         print("Perceptual hash:", percepHashDiff)
         print("Color hash:", colorHashDiff)
     if percepHashDiff >= 20 and colorHashDiff >= 5:
-        import warnings
         if outputImgFile is None:
             warnings.warn("There may be an issue with the dehazed image")
         else:
@@ -141,12 +147,12 @@ def dehazeImage(img:Union[str, np.ndarray], outputImgFile:str= None,  a:np.ndarr
         needed = True
         try:
             gamma = np.clip(1.1, 1, 1.2) # Brightness
-            gain = np.clip(5.4, 5, 5.7) # Contrast
+            gain = np.clip(5.4, 5, 5.7) # Contrast #pylint: disable= unused-variable
             try:
                 oImg2 = exposure.adjust_gamma(np.clip(oImg, 0, 255), gamma= gamma)
             except ValueError:
                 oImg2 = np.clip(oImg.copy(), 0, 255)
-            #oImg3 = exposure.adjust_sigmoid(oImg2, gain= gain)
+            # oImg3 = exposure.adjust_sigmoid(oImg2, gain= gain)
             oImg3 = (oImg2 * 255).astype(np.uint8)
         except ValueError as e:
             print(f"Did not need to dehaze; nonsensical result for hash difference {percepHashDiff} & {colorHashDiff}: {e}")
@@ -279,8 +285,6 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
     If report is True, returns a Pandas DataFrame of the report.
     Otherwise, returns None
     """
-    import glob
-    import os
     if outputDirectory is None:
         outputDirectory = directory
     else:
@@ -307,7 +311,7 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
         if thruthy is None:
             return ""
         return "Good" if thruthy else "Bad"
-    for i, filename in enumerate(fileSet, 1):
+    for iCount, filename in enumerate(fileSet, 1):
         filenameParts = os.path.basename(filename).split(".")
         fileBase = filenameParts[:-1]
         outFile = os.path.join(outputDirectory, ".".join(fileBase + ["dehazed", filenameParts[-1]]))
@@ -317,7 +321,6 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
             loggedReport= False
             if verbose:
                 print("About to report")
-            import csv
             statsSet= results[1]
             # statsSet will always be length 1 for
             # checkSections= False, but we always return
@@ -326,7 +329,7 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
                 # Create a score for "needed"
                 howMuchNeeded = 0
                 if stats["needMeasure"]["perceptualBasic"]:
-                    for key, boolVal in stats["needMeasure"].items():
+                    for _, boolVal in stats["needMeasure"].items():
                         howMuchNeeded += int(boolVal)
                 writeHeader = not os.path.exists(reportFile)
                 if verbose and not loggedReport:
@@ -383,13 +386,11 @@ def dehazeDirectory(directory, outputDirectory:str= None, extensions= ["png", "j
                     except (IOError, PermissionError):
                         if tries > tryLimit:
                             raise
-                        import time
                         print(f"Could not open `{reportFile}` for writing; if you use Excel, please close the file there. The process will abort in {(tryLimit - tries + 1) * waitDelaySeconds} seconds...")
                         time.sleep(waitDelaySeconds)
                         tries += 1
-        print(f"Done {i} of {len(fileSet)}")
+        print(f"Done {iCount} of {len(fileSet)}")
     if report:
-        import pandas as pd
         return pd.read_csv(reportFile)
 
 
@@ -398,8 +399,6 @@ def dehazeFolderOfDirectories(parentDirectory:str, outputDir:str= "dehazedFrames
     Convenience wrapper for dehazeDirectorySet for all folders
     in a parent directory
     """
-    import glob
-    import os
     if not parentDirectory.endswith("*"):
         parentDirectory = os.path.join(parentDirectory, "*")
     return dehazeDirectorySet([x for x in glob.glob(os.path.join(parentDirectory, "*"))], outputDir, recursiveSearch, report, checkSections, **kwargs)
@@ -411,8 +410,6 @@ def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDi
     Does some changes of defaults appropriate to directory
     searches, and handles reporting.
     """
-    import os
-    import textwrap
     parentDirectory = os.path.commonprefix(directorySet)
     if not os.path.exists(parentDirectory):
         # In case there's partial filename overlap
@@ -435,8 +432,6 @@ def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDi
         print(f"Starting folder {folder}...")
         reportOutO = dehazeDirectory(folder, passOutput, recursiveSearch= recursiveSearch, report= report, checkSections= checkSections, **kwargs)
         if report:
-            import pandas as pd
-            import csv
             ############
             # We're writing this to report as we go.
             # Since the most common viewer is Excel, and
@@ -463,15 +458,15 @@ def dehazeDirectorySet(directorySet:Union[list, tuple, set, frozenset], outputDi
                 except (IOError, PermissionError):
                     if tries > tryLimit:
                         raise
-                    import time
                     print(f"Could not open `{metaReport}`; if you use Excel, please close the file there. The process will abort in {(tryLimit - tries + 1) * waitDelaySeconds} seconds...")
                     time.sleep(waitDelaySeconds)
                     tries += 1
         print(f"\tDone with folder {folder}")
+        gc.collect()
 
 # Prepare the arguments for when this is called on the command line
 def __prepareargs__():
-    parser = argparse.ArgumentParser(description='Fast Single Image Haze Removal Using Dark Channel Prior.')
+    parser = argparse.ArgumentParser(description='Fast Single Image Haze Removal Using Dark Channel Prior.') #pylint: disable= redefined-outer-name
     parser.add_argument('-i', nargs=1, type=str, help='input image path', required=True)
     parser.add_argument('-o', nargs=1, type=str, help='output image path', required=True)
     parser.add_argument('-a', nargs=1, type=str, help='atm. light file path (default=None)', required=False)
@@ -489,8 +484,8 @@ def __prepareargs__():
     return parser
 
 #Parse the input arguments and returns a dictionary with them
-def __getargs__(parser):
-    args = vars(parser.parse_args())
+def __getargs__(parser): #pylint: disable= redefined-outer-name
+    args = vars(parser.parse_args()) #pylint: disable= redefined-outer-name
     return args
 
 

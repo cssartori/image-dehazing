@@ -9,7 +9,8 @@ Original by https://github.com/cssartori
 import numpy as np
 try:
     import DarkChannel
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
+    # pylint: disable= relative-beyond-top-level
     from . import DarkChannel
 from numba import jit, prange
 
@@ -33,13 +34,13 @@ def estimate(imageArray, A, w=0.95):
     nimg = np.empty(imageArray.shape)
 
     #calculate the normalized haze image
-    for c in prange(0, imageArray.shape[2]):
+    for c in prange(0, imageArray.shape[2]): #pylint: disable= not-an-iterable
         nimg[:,:, c] = imageArray[:,:, c]/A[c]
 
     #estimate the dark channel of the normalized haze image
     njdark = DarkChannel.estimate(nimg)
 
-    #calculates the transmisson t
+    #calculates the transmission t
     t = 1-w*njdark+0.25
 
     return t

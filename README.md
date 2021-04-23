@@ -1,8 +1,8 @@
-# **Fast Image Dehazing Using Dark Channel Prior For Python 3.6+** #
+# **Fast Image Dehazing Using Dark Channel Prior For Python 3.6+**
 
 An implementation of the algorithm described in *Single Image Haze Removal Using Dark Channel Prior* [He et al. 09] ([page](http://kaiminghe.com/cvpr09/)), with the modifications proposed in *Guided Filtering* [He et al. 10] for faster transmission refinement.
 
-## Running ##
+## Running
 
 In order to run the program one needs:
 
@@ -14,7 +14,16 @@ In order to run the program one needs:
 
 * [*numba*](https://numba.pydata.org/numba-doc/latest/user/installing.html) installed.
 
-The `requirements.txt` file enumerates the requirements (`pip install -r requirements.txt`).
+The `requirements.txt` file enumerates the requirements (`pip install -r requirements.txt`). The preferred way to manage dependencies is with [Poetry](https://python-poetry.org/), however. Just run `poetry install` for a venv for the project. If part of a bigger project, you may want a global install based on `requirements.txt`.
+
+### Leveraging the GPU with CUDA
+
+For CUDA-based speedups, edit `pyproject.toml` to uncomment the `cupy` line, then run:
+
+```
+poetry update
+poetry export --format requirements.txt -o requirements.txt
+```
 
 
 ### As an import
